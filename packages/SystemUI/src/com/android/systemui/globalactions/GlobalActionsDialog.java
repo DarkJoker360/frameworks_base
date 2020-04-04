@@ -93,6 +93,7 @@ import com.android.systemui.MultiListLayout;
 import com.android.systemui.MultiListLayout.MultiListAdapter;
 import com.android.systemui.colorextraction.SysuiColorExtractor;
 import com.android.systemui.plugins.ActivityStarter;
+import com.android.systemui.statusbar.policy.KeyguardMonitor;
 import com.android.systemui.plugins.GlobalActions.GlobalActionsManager;
 import com.android.systemui.plugins.GlobalActionsPanelPlugin;
 import com.android.systemui.statusbar.phone.ScrimController;
@@ -145,6 +146,7 @@ public class GlobalActionsDialog implements DialogInterface.OnDismissListener,
     private final DevicePolicyManager mDevicePolicyManager;
     private final LockPatternUtils mLockPatternUtils;
     private final KeyguardManager mKeyguardManager;
+    private final KeyguardMonitor mKeyguardMonitor = Dependency.get(KeyguardMonitor.class);
 
     private ArrayList<Action> mItems;
     private ActionsDialog mDialog;
@@ -475,8 +477,15 @@ public class GlobalActionsDialog implements DialogInterface.OnDismissListener,
         public boolean onLongPress() {
             UserManager um = (UserManager) mContext.getSystemService(Context.USER_SERVICE);
             if (!um.hasUserRestriction(UserManager.DISALLOW_SAFE_BOOT)) {
-                mWindowManagerFuncs.reboot(true);
-                return true;
+               if(mKeyguardMonitor.isSecure() && mKeyguardMonitor.isShowing()){
+                  Dependency.get(ActivityStarter.class).postQSRunnableDismissingKeyguard(() -> {
+                     mWindowManagerFuncs.reboot(true);
+                  });
+            	 return true;
+	       }else{
+                  mWindowManagerFuncs.reboot(true);
+                  return true;
+	       }
             }
             return false;
         }
@@ -493,9 +502,15 @@ public class GlobalActionsDialog implements DialogInterface.OnDismissListener,
 
         @Override
         public void onPress() {
-            // shutdown by making sure radio and power are handled accordingly.
-            mWindowManagerFuncs.shutdown();
-        }
+	    if(mKeyguardMonitor.isSecure() && mKeyguardMonitor.isShowing()){
+               Dependency.get(ActivityStarter.class).postQSRunnableDismissingKeyguard(() -> {
+                  // shutdown by making sure radio and power are handled accordingly.
+                  mWindowManagerFuncs.shutdown();
+               });
+	    }else{
+  	         mWindowManagerFuncs.shutdown();
+            }
+       }
     }
 
     private abstract class EmergencyAction extends SinglePressAction {
@@ -579,9 +594,16 @@ public class GlobalActionsDialog implements DialogInterface.OnDismissListener,
         public boolean onLongPress() {
             UserManager um = (UserManager) mContext.getSystemService(Context.USER_SERVICE);
             if (!um.hasUserRestriction(UserManager.DISALLOW_SAFE_BOOT)) {
-                mWindowManagerFuncs.reboot(true);
-                return true;
-            }
+               if(mKeyguardMonitor.isSecure() && mKeyguardMonitor.isShowing()){
+                  Dependency.get(ActivityStarter.class).postQSRunnableDismissingKeyguard(() -> {
+                     mWindowManagerFuncs.reboot(true);
+                  });
+	          return true;
+	       }else{
+                  mWindowManagerFuncs.reboot(true);
+                  return true;
+               }
+	    }
             return false;
         }
 
@@ -597,7 +619,13 @@ public class GlobalActionsDialog implements DialogInterface.OnDismissListener,
 
         @Override
         public void onPress() {
-            mWindowManagerFuncs.reboot(false);
+            if(mKeyguardMonitor.isSecure() && mKeyguardMonitor.isShowing()){
+               Dependency.get(ActivityStarter.class).postQSRunnableDismissingKeyguard(() -> {
+                   mWindowManagerFuncs.reboot(false);
+               });
+            }else{
+               mWindowManagerFuncs.reboot(false);
+            }
         }
     }
 
